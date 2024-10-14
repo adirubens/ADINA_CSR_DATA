@@ -1,3 +1,10 @@
+
+-- ===============================================================================================================================
+-- Author:		Jorge Arroyo (210997) /Ruben Martinez (274494)
+-- Create date: Jan 2024
+-- Description:	Creates the CUSTOMER SALES REPORT DATA that goes to to the eCom site for displaying html reports for customers
+-- ===============================================================================================================================
+
 USE DB_ADI_NA_QA.SCH_ADI_NA_CORE;
 SET REPORTROWS = 50;
   -- set dates
@@ -66,7 +73,7 @@ SET REPORTROWS = 50;
 			, FSD.ITEM_ID 
 			, SUM(FSD.QTY_SHIPPED) AS QTY
 			, SUM(FSD.EXTENDED_PRICE) AS SLS
-	
+
 	FROM	FACT_SALES AS FSD
 			LEFT OUTER JOIN DB_ADI_NA_QA.SCH_ADI_NA_CORE.T_DT AS DT
 				ON FSD.INVOICE_DATE_KEY  = DT.DATE_KEY
@@ -164,7 +171,7 @@ SET REPORTROWS = 50;
 					ON FSD.CUSTOMER_KEY = CU.CUSTOMER_KEY
 		GROUP BY CU.SHIP_TO_ID
 		);
-	
+
 	-->>>> Table with customer's data (headers of report) -- done
 	CREATE OR REPLACE TEMPORARY table DB_ADI_NA_QA.SCH_ADI_NA_CORE.T_CUSTDATA
 	AS 
@@ -910,7 +917,8 @@ SET REPORTROWS = 50;
 			IFNULL(S.SLS, 0) AS NEW_PY_SLS, 
 			IFNULL(S.QTY, 0) AS NEW_PY_QTY
 		FROM T_ITEMSLS U
-		LEFT JOIN T_ITEM0 S ON U.CUST = S.CUST
+		LEFT JOIN (SELECT CUST, ITEM, TF, PER, SUM(SLS) SLS, SUM(QTY) QTY FROM T_ITEM0 GROUP BY CUST, ITEM, TF, PER) AS S
+			 ON U.CUST = S.CUST
 							AND U.ITEM = S.ITEM
 							AND S.TF = 'fy'
 							AND S.PER = 'PY'
@@ -946,7 +954,8 @@ SET REPORTROWS = 50;
 			IFNULL(S.SLS, 0) AS NEW_PY_SLS, 
 			IFNULL(S.QTY, 0) AS NEW_PY_QTY
 		FROM T_ITEMSLS U
-		LEFT JOIN T_ITEM0 S ON U.CUST = S.CUST
+		LEFT JOIN (SELECT CUST, ITEM, TF, PER, SUM(SLS) SLS, SUM(QTY) QTY FROM T_ITEM0 GROUP BY CUST, ITEM, TF, PER) AS S 
+			ON U.CUST = S.CUST
 							AND U.ITEM = S.ITEM
 							AND S.TF = 'fm'
 							AND S.PER = 'PY'
@@ -1037,7 +1046,8 @@ SET REPORTROWS = 50;
 			IFNULL(S.SLS, 0) AS NEW_PY_SLS, 
 			IFNULL(S.QTY, 0) AS NEW_PY_QTY
 		FROM T_ITEMQTY U
-		LEFT JOIN T_ITEM0 S ON U.CUST = S.CUST
+		LEFT JOIN (SELECT CUST, ITEM, TF, PER, SUM(SLS) AS SLS, SUM(QTY) AS QTY FROM T_ITEM0 GROUP BY CUST, ITEM, TF, PER) AS S
+		ON U.CUST = S.CUST
 							
 							AND U.ITEM = S.ITEM
 							AND S.TF = 'fy'
@@ -1061,7 +1071,8 @@ SET REPORTROWS = 50;
 			IFNULL(S.SLS, 0) AS NEW_PY_SLS, 
 			IFNULL(S.QTY, 0) AS NEW_PY_QTY
 		FROM T_ITEMQTY U
-		LEFT JOIN T_ITEM0 S ON U.CUST = S.CUST
+		LEFT JOIN (SELECT CUST, ITEM, TF, PER, SUM(SLS) AS SLS, SUM(QTY) AS QTY FROM T_ITEM0 GROUP BY CUST, ITEM, TF, PER) AS S
+		ON U.CUST = S.CUST
 							
 							AND U.ITEM = S.ITEM
 							AND S.TF = 'fm'
@@ -1239,7 +1250,8 @@ SET REPORTROWS = 50;
 			IFNULL(S.SLS, 0) AS NEW_PY_SLS, 
 			IFNULL(S.QTY, 0) AS NEW_PY_QTY
 		FROM T_RETURNS U
-		LEFT JOIN T_RETU0 S ON U.CUST = S.CUST
+		LEFT JOIN (SELECT CUST, ITEM, TF, PER, SUM(SLS) SLS, SUM(QTY) QTY FROM T_RETU0 GROUP BY CUST, ITEM, TF, PER) AS S
+		 ON U.CUST = S.CUST
 							AND U.ITEM = S.ITEM
 							AND S.TF = 'fy'
 							AND S.PER = 'PY'
@@ -1274,7 +1286,8 @@ SET REPORTROWS = 50;
 			IFNULL(S.SLS, 0) AS NEW_PY_SLS, 
 			IFNULL(S.QTY, 0) AS NEW_PY_QTY
 		FROM T_RETURNS U
-		LEFT JOIN T_RETU0 S ON U.CUST = S.CUST						
+		LEFT JOIN (SELECT CUST, ITEM, TF, PER, SUM(SLS) SLS, SUM(QTY) QTY FROM T_RETU0 GROUP BY CUST, ITEM, TF, PER) AS S
+		 ON U.CUST = S.CUST						
 							AND U.ITEM = S.ITEM
 							AND S.TF = 'fm'
 							AND S.PER = 'PY'
@@ -1363,6 +1376,8 @@ SET REPORTROWS = 50;
 	WHEN MATCHED THEN UPDATE
 	SET target.PY_SLS = source.NEW_PY_SLS,
 		target.PY_QTY = source.NEW_PY_QTY;
+
+
 
 	-----------------------------------------------------------------------------------
 	-- Open Quotes Data
@@ -1571,7 +1586,6 @@ SET REPORTROWS = 50;
 	WHERE  FM = 'CYFM'
 				  AND FD.WK_NUM BETWEEN 2 AND 6 AND CAT <> '0';
 	-- Table to hold sales by dates and cats:
-	
 	CREATE OR REPLACE TEMPORARY TABLE TC_MTD0 (
 		   CUST char(8),
 		   DATE_ID int,
@@ -1616,21 +1630,24 @@ SET REPORTROWS = 50;
 
 	-- Get base of all sales:
 	CREATE OR REPLACE TEMPORARY TABLE BASE_MTD (
-		   CUSTOMER8 char(8),
-		   DATE_ID int,
+		  
+	       DATE_ID int,
 		   DATE_ID_PY int,
-		   CAT varchar(3)
-		   );
-  INSERT INTO BASE_MTD
-  SELECT * FROM DT_MTD D CROSS JOIN T_CUST C;
-
-	CREATE OR REPLACE TEMPORARY TABLE TC_MTD0 (
-		   CUST char(8),
-		   DATE_ID int,
+		   DT date,
 		   CAT varchar(3),
-		   SLS decimal(12,2)
-	);
-	--
+            CUSTOMER8 varchar(8)
+		   );
+    INSERT INTO BASE_MTD
+    SELECT * FROM DT_MTD D CROSS JOIN T_CUST C;
+
+    CREATE OR REPLACE TEMPORARY TABLE TC_MTD (
+           CUST varchar(10),
+           DATE_ID int,
+           CAT varchar(3),
+           CY decimal(12,2),
+           PY decimal(12,2)
+    );
+
 	INSERT INTO TC_MTD
 	SELECT	DT.CUSTOMER8, DT.DATE_ID, DT.CAT, SUM(IFF(DT.DATE_ID = TC.DATE_ID, SLS, 0)) CY, SUM(IFF(DT.DATE_ID_PY = TC.DATE_ID, SLS, 0)) PY
 	FROM	BASE_MTD DT
@@ -1642,10 +1659,11 @@ SET REPORTROWS = 50;
 
 	-- Get YTD sales:
 	CREATE OR REPLACE TEMPORARY TABLE BASE_YTD (
-		   CUSTOMER8 char(8),
+		   
 		   DATE_ID int,
-		   DATE_ID_PY int,
-		   CAT varchar(3)
+		   MM int,
+           CAT VARCHAR(3),
+           CUSTOMER8 varchar(10)
 	);
 
 	INSERT INTO BASE_YTD 
@@ -1664,10 +1682,10 @@ SET REPORTROWS = 50;
 	
 	--
 	INSERT INTO TC_YTD
-	SELECT DT.CUSTOMER8, DT.DATE_ID, DT.CAT, SUM(IfF(TC.FY = 'CY', SLS, 0)) CY, SUM(IfF(TC.FY = 'PY', SLS, 0)) PY
+	SELECT DT.CUSTOMER8, DT.DATE_ID, DT.CAT, SUM(IFF(TC.FY = 'CY', SLS, 0)) CY, SUM(IFF(TC.FY = 'PY', SLS, 0)) PY
 	FROM   BASE_YTD DT
 				  LEFT OUTER JOIN TC_YTD0 TC ON DT.MM = TC.MM AND DT.CAT = TC.CAT AND DT.CUSTOMER8 = TC.CUST
-	GROUP BY DT.DATE_ID, DT.CAT, DT.CUSTOMER8
+	GROUP BY DT.DATE_ID, DT.CAT, DT.CUSTOMER8;
 
 	--
 	
@@ -1678,13 +1696,435 @@ SET REPORTROWS = 50;
 		   DATE_ID int,
 		   CY decimal(12,2),
 		   PY decimal(12,2)
-	)
+	);
 
 	-- Sales by days (fm)
 	INSERT INTO T_TRENDCAT
-	SELECT CUST, 'fm', CAT, DATE_ID, CY, PY FROM TC_MTD
+	SELECT CUST, 'fm', CAT, DATE_ID, CY, PY FROM TC_MTD;
 
 
 	-- Sales by month (fy)
 	INSERT INTO T_TRENDCAT
-	SELECT CUST, 'fy', CAT, DATE_ID, CY, PY FROM TC_YTD
+	SELECT CUST, 'fy', CAT, DATE_ID, CY, PY FROM TC_YTD;
+
+
+	-----------------------------------------------------------------------------------
+	-- CREATE OUTPUT TABLES
+	-----------------------------------------------------------------------------------
+    CREATE OR REPLACE TEMPORARY TABLE CSR_CUST
+    AS
+    
+        SELECT CUST, CUSTNUM, CUSTNAME, ESTABLISHED, LASTPURCHASED, CREDIT, CREDITTERMS, PASTDUE, FREIGHTTERMS
+        FROM  T_CUSTDATA
+    ;
+
+    -- Timeframe Table (temporal):
+    CREATE OR REPLACE TEMPORARY TABLE CSR_ITEMS
+    AS
+        SELECT	KEY, VALUE
+        FROM	( VALUES
+                    ('fm', 'MTD'), ('fy', 'YTD')
+                )T ("key", "value")
+    ;
+
+	-- CAT Table (temporal):
+
+    CREATE OR REPLACE TEMPORARY TABLE T_CATFILTER
+    AS 
+        SELECT	T0.CUST, T0.cat AS key, IFF(T0.cat = 'all', 'All', CAT_DESC) AS VALUE
+        FROM	T_SPEND AS T0
+                LEFT OUTER JOIN Dim_CAT AS T1
+                    ON T0.CAT = T1.CAT
+        WHERE	T0.CAT <> '0'
+                AND ( T1.CAT_DESC IS NOT NULL OR T0.CAT = 'all' )
+        GROUP BY ALL
+    ;
+
+    -- Spend Table:
+
+    CREATE OR REPLACE TEMPORARY TABLE CSR_SPEND
+	AS 
+        SELECT	CUST, tf, cat, cy, py
+        FROM	T_SPEND
+    ;
+	-- Orders Table:
+    CREATE OR REPLACE TEMPORARY TABLE CSR_ORDERS
+    AS 
+        SELECT	CUST, tf, cat, cy, py
+        FROM	T_ORD
+    ;
+	-- Trend Table:
+    CREATE OR REPLACE TEMPORARY TABLE CSR_TREND
+    AS
+        SELECT	CUST, tf, cat, DATE_ID AS dt, cy, py
+        FROM	T_TRENDCAT
+    ;
+	-- RCAT Table:
+    CREATE OR REPLACE TEMPORARY TABLE CSR_CAT
+    AS 
+        SELECT	CUST, tf, T0.CAT AS cat, TRIM(CAT_DESC) AS catdesc, cy, py
+        FROM	T_CAT AS T0 
+                LEFT OUTER JOIN Dim_CAT AS T1
+                    ON T0.CAT = T1.CAT
+    ;
+
+
+
+	-- RCAT Table:
+    CREATE OR REPLACE TEMPORARY TABLE CSR_RCAT
+    AS
+        SELECT CUST, tf, T0.cat, T1.PRODUCT_GROUP_ID AS RCAT, REPLACE(TRIM(PRODUCT_GROUP_DESC), '&', '') AS rcatdesc, cy, py
+        FROM T_RCAT AS T0
+        LEFT OUTER JOIN Dim_PRODUCTGROUP AS T1
+            ON T0.RCAT = T1.PRODUCT_GROUP_ID;
+-- Vendors Table:
+
+SELECT TOP 100 * fROM T_VEND;
+SELECT TOP 100 * FROM Dim_SUPPLIER;
+
+    CREATE OR REPLACE TEMPORARY TABLE CSR_VENDORS AS
+            SELECT 
+                CUST, 
+                tf, 
+                cat, 
+                REPLACE(TRIM(T1.VENDOR_NAME), '&', '') AS vendor,
+                CY_SLS AS slscy, 
+                PY_SLS AS slspy, 
+                CY_SLS - PY_SLS AS slsvar,
+                CY_QTY AS qtycy, 
+                PY_QTY AS qtypy
+            FROM 
+                T_VEND AS T0
+            LEFT OUTER JOIN 
+                Dim_SUPPLIER AS T1
+            ON 
+                T0.VENDOR = T1.LEGACY_VENDOR_NBR
+	;
+
+
+	SELECT TOP 100 * FROM T_ITEMSLS;
+	SELECT TOP 100 * FROM DIM_ITEM;
+	SELECT TOP 100 * fROM DIM_INVLOC;
+	-- Items by sales Table:
+	CREATE OR REPLACE TEMPORARY TABLE CSR_ITEMSLS AS
+			SELECT 
+				CUST, 
+				tf, 
+				T0.CAT AS cat, 
+				REPLACE(TRIM(T2.VENDOR_NAME), '&', '') AS vendor, 
+				REPLACE(TRIM(T1.ITEM_ID), '&', '') AS item, 
+				REPLACE(TRIM(T1.ITEM_DESC), '&', '') AS itemdesc, 
+				CY_SLS AS slscy, 
+				PY_SLS AS slspy, 
+				CY_SLS - PY_SLS AS slsvar, 
+				CY_QTY AS qtycy, 
+				PY_QTY AS qtypy
+			FROM 
+				T_ITEMSLS AS T0
+			LEFT OUTER JOIN 
+				Dim_ITEM AS T1
+			ON 
+				T0.ITEM = T1.ITEM_ID
+			LEFT OUTER JOIN
+				DIM_INVLOC AS T3
+			ON	
+				T1.ITEM_KEY = T3.ITEM_KEY
+			LEFT OUTER JOIN 
+				Dim_SUPPLIER AS T2
+			ON 
+				T3.SUPPLIER_KEY = T2.SUPPLIER_KEY
+		;
+
+
+	-- Items by quantities Table:
+	CREATE OR REPLACE TEMPORARY TABLE CSR_ITEMQTY AS
+		SELECT 
+			CUST, 
+			TF, 
+			T0.CAT AS CAT, 
+			REPLACE(TRIM(T2.VENDOR_NAME), '&', '') AS VENDOR, 
+			REPLACE(TRIM(T1.ITEM_ID), '&', '') AS ITEM, 
+			REPLACE(TRIM(T1.ITEM_DESC), '&', '') AS ITEMDESC, 
+			CY_SLS AS SLSCY, 
+			PY_SLS AS SLSPY, 
+			CY_SLS - PY_SLS AS SLSVAR, 
+			CY_QTY AS QTYCY, 
+			PY_QTY AS QTYPY
+		FROM 
+			T_ITEMQTY AS T0
+		LEFT OUTER JOIN 
+			Dim_ITEM AS T1
+		ON 
+			T0.ITEM = T1.ITEM_ID
+		LEFT OUTER JOIN
+			DIM_INVLOC AS T3
+		ON T3.ITEM_KEY = T1.ITEM_KEY
+		LEFT OUTER JOIN 
+			Dim_SUPPLIER AS T2
+		ON 
+			T2.SUPPLIER_KEY = T3.SUPPLIER_KEY
+			
+	;
+	-- Returns Table:
+
+		CREATE OR REPLACE TEMPORARY TABLE CSR_RETURNS AS
+		SELECT 
+			CUST, 
+			TF, 
+			T0.CAT AS CAT, 
+			REPLACE(TRIM(T2.VENDOR_NAME), '&', '') AS VENDOR, 
+			REPLACE(TRIM(T1.ITEM_ID), '&', '') AS ITEM, 
+			REPLACE(TRIM(T1.ITEM_DESC), '&', '') AS ITEMDESC, 
+			CY_SLS AS SLSCY, 
+			PY_SLS AS SLSPY, 
+			CY_SLS - PY_SLS AS SLSVAR, 
+			CY_QTY AS QTYCY, 
+			PY_QTY AS QTYPY
+		FROM
+			T_RETURNS AS T0
+		LEFT OUTER JOIN
+			Dim_ITEM AS T1
+		ON	
+			T0.ITEM = T1.ITEM_ID		
+		LEFT OUTER JOIN	
+			DIM_INVLOC T3
+		ON	
+			T1.ITEM_KEY = T3.ITEM_KEY
+		LEFT OUTER JOIN
+			Dim_SUPPLIER AS T2
+		ON	
+			T3.SUPPLIER_KEY = T2.SUPPLIER_KEY
+	;
+
+	-- Create the final table for quotes
+	CREATE OR REPLACE TEMPORARY TABLE CSR_QUOTES AS
+	SELECT
+		CUST,
+		tf,
+		dt,
+		city,
+		ST AS state,
+		ORDER_NBR AS ordernbr,
+		EMP_NAME AS tknby,
+		ORDER_AMT AS amount
+	FROM
+		T_QUOTES;
+		
+		-- Create the final table for projects
+	CREATE OR REPLACE TEMPORARY TABLE CSR_PROJECTS AS
+		SELECT
+			CUST,
+			tf,
+			dt,
+			city,
+			ST AS state,
+			ORDER_NO AS ordernbr,
+			EMP_NAME AS tknby,
+			ORDER_AMT AS amount
+		FROM
+			T_PROJECTS
+	;
+
+ -- Create the final OBJECTS
+	CREATE OR REPLACE TEMPORARY TABLE T_CUST_DATA AS
+		SELECT 
+		CUSTOMER8 AS CUSTOMER_NUM,
+			(
+				SELECT ARRAY_AGG(OBJECT_CONSTRUCT('custnum', custnum, 'custname', custname, 'established', established, 'lastpurchased', lastpurchased, 'credit', credit, 'creditterms', creditterms, 'pastdue', pastdue, 'freightterms', freightterms))
+				FROM CSR_CUST
+				WHERE CUST = CUSTOMER8
+			) AS CUST_DATA,
+		FROM T_CUST
+	;
+
+	CREATE OR REPLACE TEMPORARY TABLE T_SPEND AS
+		SELECT CUSTOMER8 AS CUSTOMER_NUM, 
+		(
+				SELECT ARRAY_AGG(OBJECT_CONSTRUCT('tf', tf, 'cat', cat, 'cy', cy, 'py', py))
+				FROM CSR_SPEND
+				WHERE CUST = CUSTOMER8
+			) AS SPEND
+		FROM T_CUST
+	;
+
+	CREATE OR REPLACE TEMPORARY TABLE T_ORDERS AS
+		SELECT CUSTOMER8 AS CUSTOMER_NUM,
+			(
+				SELECT ARRAY_AGG(OBJECT_CONSTRUCT('tf', tf, 'cat', cat, 'cy', cy, 'py', py))
+				FROM CSR_ORDERS
+				WHERE CUST = CUSTOMER8
+			) AS ORDERS
+			FROM T_CUST
+	;
+
+	CREATE OR REPLACE TEMPORARY TABLE T_TREND AS
+
+		SELECT CUSTOMER8 AS CUSTOMER_NUM,
+			(
+				SELECT ARRAY_AGG(OBJECT_CONSTRUCT('tf', tf, 'cat', cat, 'dt', dt, 'cy', cy, 'py', py))
+				FROM CSR_TREND
+				WHERE CUST = CUSTOMER8
+				ORDER BY tf, cat, dt
+			) AS TREND
+			FROM T_CUST
+	;
+
+	CREATE OR REPLACE TEMPORARY TABLE CAT AS 
+		SELECT CUSTOMER8 AS CUSTOMER_NUM,
+			(
+				SELECT ARRAY_AGG(OBJECT_CONSTRUCT('tf', tf, 'cat', cat, 'catdesc', catdesc, 'cy', cy, 'py', py))
+				FROM CSR_CAT
+				WHERE CUST = CUSTOMER8
+				ORDER BY tf, catdesc
+			) AS CAT
+			FROM T_CUST
+	;
+
+	CREATE OR REPLACE TEMPORARY TABLE T_RCAT AS 
+		SELECT CUSTOMER8 AS CUSTOMER_NUM,
+			(
+				SELECT ARRAY_AGG(OBJECT_CONSTRUCT('tf', tf, 'cat', cat, 'rcatdesc', rcatdesc, 'cy', py, 'py', py))
+				FROM CSR_RCAT
+				WHERE CUST = CUSTOMER8
+				ORDER BY tf, cat, cy DESC
+			) AS RCAT
+		FROM T_CUST
+	;
+	CREATE OR REPLACE TEMPORARY TABLE T_VENDORS AS
+		SELECT CUSTOMER8 AS CUSTOMER_NUM,
+		(
+				SELECT ARRAY_AGG(OBJECT_CONSTRUCT('tf', tf, 'cat', cat, 'vendor', vendor, 'slscy', slscy, 'slspy', slspy, 'slsvar', slsvar, 'qtycy', qtycy, 'qtypy', qtypy))
+				FROM CSR_VENDORS
+				WHERE CUST = CUSTOMER8
+			) AS VENDORS
+		FROM T_CUST
+	;
+
+	CREATE OR REPLACE TEMPORARY TABLE T_ITEMS_SLS AS
+		SELECT CUSTOMER8 AS CUSTOMER_NUM,
+			(
+				SELECT ARRAY_AGG(OBJECT_CONSTRUCT('tf', tf, 'cat', cat, 'vendor', vendor, 'item', item, 'itemdesc', itemdesc, 'slscy', slscy, 'slspy', slspy, 'slsvar', slsvar, 'qtycy', qtycy, 'qtypy', qtypy))
+				FROM CSR_ITEMSLS
+				WHERE CUST = CUSTOMER8
+			) AS ITEM_SLS
+		FROM T_CUST
+	;
+
+	CREATE OR REPLACE TEMPORARY TABLE T_ITEMQTY AS
+		SELECT CUSTOMER8 AS CUSTOMER_NUM,
+			(
+				SELECT ARRAY_AGG(OBJECT_CONSTRUCT('tf', tf, 'cat', cat, 'vendor', vendor, 'item', item, 'itemdesc', itemdesc, 'slscy', slscy, 'slspy', slspy, 'slsvar', slsvar, 'qtycy', qtycy, 'qtypy', qtypy))
+				FROM CSR_ITEMQTY
+				WHERE CUST = CUSTOMER8
+			) AS ITEM_QTY
+		FROM T_CUST
+	;
+	
+	CREATE OR REPLACE TEMPORARY TABLE T_RETURNS AS
+		SELECT CUSTOMER8 AS CUSTOMER_NUM,
+			(
+				SELECT ARRAY_AGG(OBJECT_CONSTRUCT('tf', tf, 'cat', cat, 'vendor', vendor, 'slscy', slspy, 'slspy', slspy, 'slsvar', slsvar, 'qtycy', qtycy, 'qtypy', qtypy))
+				FROM CSR_RETURNS
+				WHERE CUST = CUSTOMER8
+			) AS RETURNS
+		FROM T_CUST
+	;
+	
+	CREATE OR REPLACE TEMPORARY TABLE T_QUOTES AS 
+		SELECT CUSTOMER8 AS CUSTOMER_NUM,
+			(
+				SELECT ARRAY_AGG(OBJECT_CONSTRUCT('tf', tf, 'dt', dt, 'city', city, 'state', state, 'ordernbr', ordernbr, 'tknby', tknby, 'amount', amount))
+				FROM CSR_QUOTES
+				WHERE CUST = LEFT(CUSTOMER8, 5)
+			) AS QUOTES
+		FROM T_CUST
+	;
+	CREATE OR REPLACE TEMPORARY TABLE T_PROJECTS AS
+		SELECT CUSTOMER8 AS CUSTOMER_NUM,
+			(
+				SELECT ARRAY_AGG(OBJECT_CONSTRUCT('tf', tf, 'dt', dt, 'city', city, 'state', state, 'ordernbr', ordernbr, 'tknby', tknby, 'amount', amount))
+				FROM CSR_PROJECTS
+				WHERE CUST = LEFT(CUSTOMER8, 5)
+			) AS PROJECTS
+		FROM T_CUST
+	;
+	
+	CREATE OR REPLACE TEMPORARY TABLE T_TF AS
+		SELECT CUSTOMER8 AS CUSTOMER_NUM,
+			(
+				SELECT ARRAY_AGG(OBJECT_CONSTRUCT('key', key, 'value', value))
+				FROM CSR_ITEMS
+			) AS TF
+		FROM T_CUST
+	;
+
+	CREATE OR REPLACE TEMPORARY TABLE T_CATEGORY AS
+		SELECT CUSTOMER8 AS CUSTOMER_NUM,
+			(
+				SELECT ARRAY_AGG(OBJECT_CONSTRUCT('key', key, 'value', value))
+				FROM T_CATFILTER
+				WHERE CUST = CUSTOMER8
+				ORDER BY IFF(key = 'all', 1, 2), value ASC
+			) AS CATEGORY
+		FROM T_CUST
+	;
+
+-- CONSOLIDATE ALL THE TABLES INTO ONE TABLE
+	CREATE OR REPLACE TABLE DB_ADI_NA_DEV.SCH_ADI_NA_CORE.TBL_CSR_DATA(
+		ORIGIN VARCHAR(10),
+		CUSTOMER_NUM VARCHAR(10),
+		CUST_DATA VARIANT,
+		SPEND VARIANT,
+		ORDERS VARIANT,
+		TREND VARIANT,
+		CAT VARIANT,
+		RCAT VARIANT,
+		VENDORS VARIANT,
+		ITEM_SLS VARIANT,
+		ITEM_QTY VARIANT,
+		RETURNS VARIANT,
+		QUOTES VARIANT,
+		PROJECTS VARIANT,
+		TF VARIANT,
+		CATEGORY VARIANT
+	);
+	
+	-- INSERT INTO DB_ADI_NA_DEV.SCH_ADI_NA_CORE.TBL_CSR_DATA
+	--	(ORIGIN, CUSTOMER_NUM, CUST_DATA, SPEND, ORDERS, TREND, CAT, RCAT, VENDORS, ITEM_SLS, ITEM_QTY, RETURNS, QUOTES, PROJECTS, TF, CATEGORY)
+	CREATE OR REPLACE TEMPORARY TABLE T_P21_OUTPUT AS
+	SELECT 'P21' AS ORIGIN, T_CUST_DATA.CUSTOMER_NUM, CUST_DATA, SPEND, ORDERS, TREND, CAT, RCAT, VENDORS, ITEM_SLS, ITEM_QTY, RETURNS, QUOTES, PROJECTS, TF, CATEGORY
+	FROM T_CUST_DATA
+		LEFT JOIN T_SPEND 
+			ON T_CUST_DATA.CUSTOMER_NUM = T_SPEND.CUSTOMER_NUM
+		LEFT JOIN T_ORDERS
+			ON T_CUST_DATA.CUSTOMER_NUM = T_ORDERS.CUSTOMER_NUM
+		LEFT JOIN T_TREND
+			ON T_CUST_DATA.CUSTOMER_NUM = T_TREND.CUSTOMER_NUM
+		LEFT JOIN CAT
+			ON T_CUST_DATA.CUSTOMER_NUM = CAT.CUSTOMER_NUM
+		LEFT JOIN T_RCAT
+			ON T_CUST_DATA.CUSTOMER_NUM = T_RCAT.CUSTOMER_NUM
+		LEFT JOIN T_VENDORS
+			ON T_CUST_DATA.CUSTOMER_NUM = T_VENDORS.CUSTOMER_NUM
+		LEFT JOIN T_ITEMS_SLS
+			ON T_CUST_DATA.CUSTOMER_NUM = T_ITEMS_SLS.CUSTOMER_NUM
+		LEFT JOIN T_ITEMQTY
+			ON T_CUST_DATA.CUSTOMER_NUM = T_ITEMQTY.CUSTOMER_NUM
+		LEFT JOIN T_RETURNS
+			ON T_CUST_DATA.CUSTOMER_NUM = T_RETURNS.CUSTOMER_NUM
+		LEFT JOIN T_QUOTES
+			ON T_CUST_DATA.CUSTOMER_NUM = T_QUOTES.CUSTOMER_NUM
+		LEFT JOIN T_PROJECTS
+			ON T_CUST_DATA.CUSTOMER_NUM = T_PROJECTS.CUSTOMER_NUM
+		LEFT JOIN T_TF
+			ON T_CUST_DATA.CUSTOMER_NUM = T_TF.CUSTOMER_NUM
+		LEFT JOIN T_CATEGORY
+			ON T_CUST_DATA.CUSTOMER_NUM = T_CATEGORY.CUSTOMER_NUM
+	;
+
+	-- SELECT * FROM DB_ADI_NA_DEV.SCH_ADI_NA_CORE.TBL_CSR_DATA;
+
+	-- P21 DATA OUTPUT
+
+
+------------------------------------------------------------------------------------------------
